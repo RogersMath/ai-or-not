@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spot the Human — AI or Authentic?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* field */
+  --night:#12102A;
+  --night-2:#1C1A3D;
+  --night-3:#241B44;
+  --cream:#F7F3EC;        /* 16.4:1 on --night */
+  --cream-dim:#D8D2E4;    /* 11.2:1 on --night */
+
+  /* card surface */
+  --card:#FBF8F2;
+  --ink:#171225;          /* 16.8:1 on card */
+  --ink-soft:#413A55;     /* 8.9:1 on card */
+  --rule:#DCD4C8;
+
+  /* yarn accents */
+  --yarn:#FF9EC4;         /* large text / borders on night only */
+  --yarn-deep:#8E1F52;    /* 8.7:1 on card */
+  --thread:#7BE0D6;
+  --thread-deep:#0F5F5A;  /* 7.4:1 on card */
+  --true:#14532D;         /* 9.6:1 on card */
+  --true-tint:#E3F0E6;
+  --false:#7E1616;        /* 9.8:1 on card */
+  --false-tint:#F6E4E2;
+  --focus:#FFD166;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(120% 80% at 12% -10%, #3A2560 0%, transparent 55%),
+    radial-gradient(100% 70% at 92% 8%, #123F52 0%, transparent 50%),
+    linear-gradient(178deg, var(--night) 0%, var(--night-2) 55%, var(--night-3) 100%);
+  background-attachment:fixed;
+  color:var(--cream);
+  font:400 1.0625rem/1.65 "Work Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:56rem;margin:0 auto;padding:1.5rem 1.1rem 4rem}
+h1,h2,.score{font-family:"Fraunces",Georgia,serif}
+h1{font-size:clamp(2rem,9vw,3.25rem);font-weight:900;line-height:1.02;letter-spacing:-.02em;margin:0 0 .6rem}
+h1 .accent{color:var(--yarn);display:block;font-size:.42em;font-weight:700;letter-spacing:.22em;text-transform:uppercase;margin-bottom:.7rem;font-family:"Work Sans",sans-serif}
+h2{font-size:1.4rem;font-weight:700;line-height:1.25;margin:0 0 .6rem}
+p{margin:0 0 1rem;max-width:40rem}
+.lede{color:var(--cream-dim)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:.4rem}
+
+/* ---- yarn chain progress (signature) ---- */
+.chain{display:flex;align-items:center;gap:.4rem;margin:0 0 1.1rem;padding:0;list-style:none}
+.chain li{
+  width:1.05rem;height:1.05rem;border-radius:50%;
+  border:3px solid rgba(247,243,236,.32);
+}
+.chain li.done{border-color:var(--yarn);background:rgba(255,158,196,.22)}
+.chain li.now{
+  border-color:var(--thread);background:rgba(123,224,214,.2);
+  transform:scale(1.25);
+}
+.chain li.miss{border-color:var(--cream-dim);background:transparent;opacity:.55}
+
+/* ---- status bar ---- */
+.bar{
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:.4rem 1.2rem;
+  font:600 .875rem/1.4 "Work Sans",sans-serif;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--cream-dim);margin-bottom:1rem;
+}
+.bar b{font-family:"Fraunces",serif;font-size:1.15rem;font-weight:700;color:var(--cream);letter-spacing:0;margin-left:.35rem}
+#clock.low b,#clock.low{color:var(--yarn)}
+@media (prefers-reduced-motion:no-preference){ #clock.low b{animation:pulse 1s ease-in-out infinite} }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* ---- cards ---- */
+.choices{display:grid;gap:1rem;grid-template-columns:1fr}
+@media (min-width:44rem){ .choices{grid-template-columns:1fr 1fr} }
+
+.choice{
+  position:relative;overflow:hidden;display:block;width:100%;text-align:left;
+  background:var(--card);color:var(--ink);
+  border:2px solid transparent;border-radius:1.1rem;
+  padding:1.1rem;font:inherit;cursor:pointer;
+  box-shadow:0 10px 30px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.5) inset;
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+.choice:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.choice:active{transform:translateY(0)}
+.choice[aria-pressed="true"]{border-color:var(--thread-deep);background:linear-gradient(180deg,#EAF7F5,var(--card))}
+.choice[disabled]{cursor:default;transform:none}
+
+/* shimmer sweep on the selected card, once */
+@media (prefers-reduced-motion:no-preference){
+  .choice[aria-pressed="true"]::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.75) 50%,transparent 65%);
+    transform:translateX(-120%);animation:sweep .85s ease-out forwards;
+  }
+  @keyframes sweep{to{transform:translateX(120%)}}
+}
+
+.choice .tag{
+  display:inline-block;font:700 .75rem/1 "Work Sans",sans-serif;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--card);background:var(--ink);
+  padding:.4rem .7rem;border-radius:999px;margin-bottom:.8rem;
+}
+.choice img{display:block;width:100%;height:auto;border-radius:.7rem;background:#EDE7DC}
+.choice .text{white-space:pre-line;margin:0;font-size:1.0625rem}
+.choice .text.verse{font-family:"Fraunces",Georgia,serif;font-size:1.15rem;line-height:1.5}
+.choice .src{display:block;margin-top:.7rem;font-size:.85rem;color:var(--ink-soft);font-style:italic}
+
+.choice.correct{border-color:var(--true);background:linear-gradient(180deg,var(--true-tint),var(--card))}
+.choice.wrong{border-color:var(--false);background:linear-gradient(180deg,var(--false-tint),var(--card))}
+.verdict{
+  display:flex;align-items:center;gap:.45rem;margin-top:.9rem;
+  font:700 .95rem/1 "Work Sans",sans-serif;letter-spacing:.04em;text-transform:uppercase;
+}
+.verdict.h{color:var(--true)}
+.verdict.a{color:var(--false)}
+.verdict span{font-size:1.15rem}
+
+/* ---- buttons ---- */
+.btn{
+  position:relative;overflow:hidden;display:block;width:100%;min-height:3.4rem;
+  padding:1rem 1.4rem;border:0;border-radius:999px;cursor:pointer;
+  font:700 1.0625rem/1.2 "Work Sans",sans-serif;letter-spacing:.02em;
+  background:linear-gradient(100deg,#FFC2DA,#FF9EC4 45%,#7BE0D6);
+  color:#16112A;
+  box-shadow:0 8px 26px rgba(255,158,196,.28);
+  transition:transform .15s ease, filter .15s ease;
+}
+.btn:hover{transform:translateY(-2px);filter:saturate(1.1)}
+.btn[disabled]{background:rgba(247,243,236,.14);color:var(--cream-dim);box-shadow:none;cursor:not-allowed;transform:none}
+@media (prefers-reduced-motion:no-preference){
+  .btn:not([disabled])::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%);
+    transform:translateX(-120%);animation:sweep 2.6s ease-in-out infinite;
+  }
+}
+.btn-quiet{background:transparent;color:var(--cream);border:2px solid rgba(247,243,236,.4);box-shadow:none}
+.btn-quiet::after{display:none}
+.actions{margin-top:1.5rem}
+
+/* ---- feedback ---- */
+.feedback{
+  margin-top:1.4rem;padding:1.1rem 1.2rem;border-radius:1rem;
+  background:rgba(247,243,236,.09);border-left:6px solid var(--thread);
+}
+.feedback.miss{border-left-color:var(--yarn)}
+.feedback h2{font-size:1.15rem;margin:0 0 .3rem}
+.feedback p{margin:0;color:var(--cream-dim)}
+
+/* ---- start + results ---- */
+.hero-rule{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--yarn),var(--thread));margin:0 0 1.5rem;max-width:9rem}
+.score{font-size:clamp(3rem,16vw,5.5rem);font-weight:900;line-height:1;margin:.4rem 0 .2rem;
+  background:linear-gradient(100deg,#FFC2DA,#7BE0D6);-webkit-background-clip:text;background-clip:text;color:transparent}
+@supports not (background-clip:text){ .score{color:var(--yarn)} }
+.recap{list-style:none;padding:0;margin:1.4rem 0;display:flex;flex-wrap:wrap;gap:.55rem}
+.recap li{
+  padding:.45rem .85rem;border-radius:999px;font:600 .9rem/1 "Work Sans",sans-serif;
+  border:2px solid rgba(247,243,236,.3);color:var(--cream-dim);
+}
+.recap li.hit{border-color:var(--thread);color:var(--thread)}
+.recap li.miss{border-color:var(--yarn);color:var(--yarn)}
+.qr{margin-top:2.5rem;padding:1.4rem;border-radius:1.1rem;background:rgba(247,243,236,.07);border:1px solid rgba(247,243,236,.16)}
+.qr img{width:10rem;max-width:55%;height:auto;display:block;background:#fff;padding:.6rem;border-radius:.7rem;margin-top:.6rem}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){
+  .screen>*{animation:rise .35s cubic-bezier(.2,.7,.3,1) backwards}
+  .screen>*:nth-child(2){animation-delay:.05s}
+  .screen>*:nth-child(3){animation-delay:.1s}
+  .screen>*:nth-child(4){animation-delay:.15s}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main id="app" class="screen"></main>
+  <p aria-live="polite" role="status" class="visually-hidden" id="live"></p>
+</div>
+
+<script>
+const ROUNDS = [
+  {
+    kind:"image",
+    human:{src:"Human_made_crochet_pbj_fish.jpg", alt:"Crocheted peanut butter and jelly sandwich with a smiling face and long purple tentacles, held up in a stairwell."},
+    ai:{src:"AI_peanutbutter_jellyfish.jpg", alt:"Crocheted peanut butter and jelly sandwich with a smiling face and purple and orange tentacles, held up against a curtain."},
+    note:"Look at where the yarn actually joins the bread, and whether the tentacles are counted evenly."
+  },
+  {
+    kind:"image",
+    human:{src:"Human_made_crochet_tophat_turtle.jpg", alt:"Chunky crocheted turtle in a pink top hat, with a pink, purple and teal variegated shell."},
+    ai:{src:"AI_crochet.jpg", alt:"Crocheted tabby cat with a grey ruff, yellow eyes and a long fluffy tail, sitting on a table."},
+    note:"Real amigurumi shows seams and stuffing pulling at the fabric. The cat's fur and whiskers are rendered detail rather than stitches."
+  },
+  {
+    kind:"text", verse:true,
+    human:{src:"Emily Dickinson", body:"\u201CHope\u201D is the thing with feathers -\nThat perches in the soul \u2013"},
+    ai:{body:"The evening settles softly down,\nA silver hush on field and town."},
+    note:"Dickinson breaks the meter and the grammar. The other pair of lines is smooth and closes neatly."
+  },
+  {
+    kind:"text", verse:true,
+    human:{src:"Sara Teasdale, from \u201CBarter\u201D", body:"Life has loveliness to sell,\nAll beautiful and splendid things,\nBlue waves whitened on a cliff,\nSoaring fire that sways and sings,\nAnd children's faces looking up\nHolding wonder like a cup."},
+    ai:{body:"The moon hangs quietly above the hill,\nA silver lantern standing still.\nThe night unfolds its velvet sky,\nWhile dreams awaken and drift by."},
+    note:"Teasdale commits to odd, specific images. The other poem reaches for moon, silver and velvet \u2014 the safest words available."
+  },
+  {
+    kind:"text",
+    human:{src:"W. H. Hudson, from \u201CGreen Mansions\u201D", body:"A darkened chamber, the existence of which had never been suspected in that familiar house in Main Street, furnished only with an ebony stand on which stood a cinerary urn, its surface ornamented with flower and leaf and thorn, and winding through it all the figure of a serpent"},
+    ai:{body:"The rain arrived just after sunset, smoothing the edges of the city. Streetlights shimmered in puddles, and the hurried footsteps of strangers softened into a single rhythm. For a few moments, everyone seemed to belong to the same quiet evening."},
+    note:"One sentence risks running out of breath. The other is three tidy sentences that each land on a soft abstraction."
+  },
+  {
+    kind:"text",
+    human:{src:"Pamela Smith, from \u201CGolden Girl\u201D", body:"Closing the curtain and turning away, I'm faced with the dark of my room. A single bright lantern sits in the corner. The shadows from the furniture seem as if they're stretching towards me, ready to trap me. The small size of the room becomes suffocating, and I realize I can't stay here any longer."},
+    ai:{body:"The coffee was terrible, but I kept going to the diner anyway. The waitress never remembered my order, the booth wobbled if I leaned too hard on the table, and the radio only seemed to play songs from twenty years ago. Somehow that made the place feel more dependable than all the shiny new cafes downtown."},
+    note:"Both are first person. One ends on a tidy paradox; the other ends on a decision the narrator has to act on."
+  }
+];
+
+const TOTAL_SECONDS = 180;
+const app = document.getElementById("app");
+const live = document.getElementById("live");
+let state = {};
+
+function reset(){
+  state = {screen:"start",index:0,correct:0,answered:0,picked:null,locked:false,
+           secondsLeft:TOTAL_SECONDS,timer:null,layout:[],log:[],endReason:""};
+  ROUNDS.forEach(()=>state.layout.push(Math.random()<0.5));
+}
+function startGame(){ state.screen="play"; state.timer=setInterval(tick,1000); render(); focusFirst(); }
+function tick(){
+  state.secondsLeft--;
+  if(state.secondsLeft<=0){ endGame("Time is up."); return; }
+  const el=document.getElementById("clock");
+  if(el){
+    el.querySelector("b").textContent=clock();
+    el.className=state.secondsLeft<=30?"low":"";
+    if(state.secondsLeft===30) say("Thirty seconds left.");
+  }
+}
+function clock(){ return Math.floor(state.secondsLeft/60)+":"+String(state.secondsLeft%60).padStart(2,"0"); }
+function endGame(reason){ clearInterval(state.timer); state.screen="end"; state.endReason=reason||""; render(); focusFirst(); }
+function say(m){ live.textContent=m; }
+
+function pick(side){
+  if(state.locked) return;
+  state.picked=side; render();
+  const b=document.getElementById("confirm"); if(b) b.focus();
+}
+function confirmPick(){
+  if(state.locked||!state.picked) return;
+  const hit = state.picked === (state.layout[state.index] ? "left" : "right");
+  state.locked=true; state.answered++;
+  if(hit) state.correct++;
+  state.log.push({n:state.index+1,hit:hit});
+  render();
+  say((hit?"Correct. ":"Not that one. ")+"Score "+state.correct+" of "+state.answered+".");
+  const n=document.getElementById("next"); if(n) n.focus();
+}
+function next(){
+  if(state.index+1>=ROUNDS.length){ endGame(""); return; }
+  state.index++; state.picked=null; state.locked=false; render(); focusFirst();
+}
+function focusFirst(){ const t=app.querySelector("h1,h2"); if(t){ t.setAttribute("tabindex","-1"); t.focus(); } }
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function chainHTML(){
+  return '<ol class="chain" aria-hidden="true">' + ROUNDS.map((_,i)=>{
+    const rec = state.log[i];
+    const cls = rec ? (rec.hit?"done":"miss") : (i===state.index?"now":"");
+    return '<li class="'+cls+'"></li>';
+  }).join("") + "</ol>";
+}
+
+function cardHTML(item,side,round){
+  const pressed = state.picked===side ? "true":"false";
+  let cls="choice", verdict="";
+  if(state.locked){
+    const isHuman = (side==="left")===state.layout[state.index];
+    if(state.picked===side) cls += isHuman ? " correct" : " wrong";
+    verdict = '<span class="verdict '+(isHuman?"h":"a")+'"><span aria-hidden="true">'+(isHuman?"\u2726":"\u25C7")+'</span>'+
+              (isHuman?"Made by a person":"Generated by AI")+"</span>";
+  }
+  const tag='<span class="tag">'+(side==="left"?"A":"B")+"</span>";
+  const src = (state.locked && item.src && round.kind==="text") ? '<span class="src">'+esc(item.src)+"</span>" : "";
+  const inner = round.kind==="image"
+    ? tag+'<img src="'+esc(item.src)+'" alt="'+esc(item.alt)+'">'
+    : tag+'<p class="text'+(round.verse?" verse":"")+'">'+esc(item.body)+"</p>"+src;
+  return '<button type="button" class="'+cls+'" aria-pressed="'+pressed+'"'+(state.locked?" disabled":"")+
+         ' onclick="pick(\''+side+'\')">'+inner+verdict+"</button>";
+}
+
+function render(){
+  if(state.screen==="start"){
+    app.innerHTML = `
+      <h1><span class="accent">Six pairs · three minutes</span>Spot the Human</h1>
+      <div class="hero-rule"></div>
+      <p class="lede">Two crochet photographs and four short passages. In every pair, one was made by a person and one by a machine. Nothing marks which is which.</p>
+      <p class="lede">Tap the one you believe is authentic, confirm it, and the answer shows straight away.</p>
+      <p class="actions"><button class="btn" onclick="startGame()">Start the round</button></p>
+      <div class="qr">
+        <h2>Playing on your own phone?</h2>
+        <p class="lede">Scan to open this page.</p>
+        <img src="qr.png" alt="QR code linking to this game.">
+      </div>`;
+    return;
+  }
+  if(state.screen==="end"){
+    const pct = state.answered ? Math.round(state.correct/state.answered*100) : 0;
+    const chips = state.log.map(r=>'<li class="'+(r.hit?"hit":"miss")+'">Pair '+r.n+" · "+(r.hit?"found it":"missed")+"</li>").join("");
+    app.innerHTML = `
+      <h1><span class="accent">Results</span>${state.correct} of ${state.answered}</h1>
+      <p class="score" aria-hidden="true">${pct}%</p>
+      <p class="lede">${state.endReason ? esc(state.endReason)+" Only the pairs you finished are counted. " : ""}Guessing at random lands on fifty.</p>
+      <ul class="recap">${chips || '<li class="miss">No pairs answered</li>'}</ul>
+      <p class="actions"><button class="btn" onclick="reset();render();focusFirst();">Play again</button></p>
+      <div class="qr">
+        <h2>Pass it on</h2>
+        <p class="lede">Scan to open this page.</p>
+        <img src="qr.png" alt="QR code linking to this game.">
+      </div>`;
+    return;
+  }
+
+  const round=ROUNDS[state.index];
+  const humanLeft=state.layout[state.index];
+  const left = humanLeft?round.human:round.ai;
+  const right= humanLeft?round.ai:round.human;
+  const hit = state.locked && state.log[state.log.length-1].hit;
+  const last = state.index+1===ROUNDS.length;
+
+  app.innerHTML = `
+    ${chainHTML()}
+    <div class="bar">
+      <span>Pair <b>${state.index+1}</b> / ${ROUNDS.length}</span>
+      <span>Found <b>${state.correct}</b> / ${state.answered}</span>
+      <span id="clock" class="${state.secondsLeft<=30?"low":""}">Time <b>${clock()}</b></span>
+    </div>
+    <h2>Which one was made by a person?</h2>
+    <p class="lede">${round.kind==="image"?"Two crochet pieces.":"Two short passages."} Tap your choice, then confirm it.</p>
+    <div class="choices">${cardHTML(left,"left",round)}${cardHTML(right,"right",round)}</div>
+    ${state.locked ? `
+      <div class="feedback ${hit?"":"miss"}">
+        <h2>${hit?"Correct.":"Not that one."}</h2>
+        <p>${esc(round.note)}</p>
+      </div>
+      <p class="actions"><button class="btn" id="next" onclick="next()">${last?"See results":"Next pair"}</button></p>
+    ` : `
+      <p class="actions"><button class="btn" id="confirm" onclick="confirmPick()" ${state.picked?"":"disabled"}>Confirm that as the authentic choice</button></p>
+    `}`;
+}
+
+reset(); render();
+</script>
+</body>
+</html>
