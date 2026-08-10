@@ -171,7 +171,22 @@ p{margin:0 0 1rem;max-width:40rem}
 .recap li.hit{border-color:var(--thread);color:var(--thread)}
 .recap li.miss{border-color:var(--yarn);color:var(--yarn)}
 .qr{margin-top:2.5rem;padding:1.4rem;border-radius:1.1rem;background:rgba(247,243,236,.07);border:1px solid rgba(247,243,236,.16)}
-.qr img{width:10rem;max-width:55%;height:auto;display:block;background:#fff;padding:.6rem;border-radius:.7rem;margin-top:.6rem}
+.qr button.qrtoggle{
+  display:block;width:100%;text-align:left;padding:0;margin-top:.6rem;
+  background:none;border:0;color:var(--cream-dim);font:inherit;cursor:pointer;
+}
+.qr button.qrtoggle .hint{
+  display:block;font:600 .875rem/1.4 "Work Sans",sans-serif;
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:.6rem;
+}
+.qr button.qrtoggle:hover .hint{color:var(--cream)}
+.qr img{
+  display:block;width:10rem;max-width:55%;height:auto;
+  background:#fff;padding:.6rem;border-radius:.7rem;
+  transition:width .25s ease, max-width .25s ease, padding .25s ease;
+}
+.qr.open img{width:100%;max-width:32rem;padding:1rem}
+@media (prefers-reduced-motion:reduce){ .qr img{transition:none} }
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:no-preference){
   .screen>*{animation:rise .35s cubic-bezier(.2,.7,.3,1) backwards}
@@ -301,6 +316,27 @@ function cardHTML(item,side,round){
          ' onclick="pick(\''+side+'\')">'+inner+verdict+"</button>";
 }
 
+let qrOpen = false;
+
+function qrHTML(heading){
+  return `<div class="qr${qrOpen?" open":""}" id="qrbox">
+    <h2>${heading}</h2>
+    <button type="button" class="qrtoggle" id="qrbtn" aria-expanded="${qrOpen}" onclick="toggleQR()">
+      <span class="hint">${qrOpen?"Tap to shrink QR code":"Tap to enlarge QR code"}</span>
+      <img src="qr.png" alt="QR code linking to this game.">
+    </button>
+  </div>`;
+}
+
+function toggleQR(){
+  qrOpen = !qrOpen;
+  const box=document.getElementById("qrbox"), btn=document.getElementById("qrbtn");
+  box.classList.toggle("open", qrOpen);
+  btn.setAttribute("aria-expanded", qrOpen);
+  btn.querySelector(".hint").textContent = qrOpen ? "Tap to shrink QR code" : "Tap to enlarge QR code";
+  say(qrOpen ? "QR code enlarged." : "QR code back to normal size.");
+}
+
 function render(){
   if(state.screen==="start"){
     app.innerHTML = `
@@ -309,11 +345,7 @@ function render(){
       <p class="lede">Two crochet photographs and four short passages. In every pair, one was made by a person and one by a machine. Nothing marks which is which.</p>
       <p class="lede">Tap the one you believe is authentic, confirm it, and the answer shows straight away.</p>
       <p class="actions"><button class="btn" onclick="startGame()">Start the round</button></p>
-      <div class="qr">
-        <h2>Playing on your own phone?</h2>
-        <p class="lede">Scan to open this page.</p>
-        <img src="qr.png" alt="QR code linking to this game.">
-      </div>`;
+      ${qrHTML("Playing on your own phone?")}`;
     return;
   }
   if(state.screen==="end"){
@@ -325,11 +357,7 @@ function render(){
       <p class="lede">${state.endReason ? esc(state.endReason)+" Only the pairs you finished are counted. " : ""}Guessing at random lands on fifty.</p>
       <ul class="recap">${chips || '<li class="miss">No pairs answered</li>'}</ul>
       <p class="actions"><button class="btn" onclick="reset();render();focusFirst();">Play again</button></p>
-      <div class="qr">
-        <h2>Pass it on</h2>
-        <p class="lede">Scan to open this page.</p>
-        <img src="qr.png" alt="QR code linking to this game.">
-      </div>`;
+      ${qrHTML("Pass it on")}`;
     return;
   }
 
